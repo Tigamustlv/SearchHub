@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Relatórios - Buscapé</title>
+<title>Relatórios - SearchHub</title>
 <link rel="icon" type="image/x-icon" href="{{ url_for('static', path='images/icon.ico') }}">
 
 <style>
@@ -177,13 +177,13 @@ button:hover{
 
 <body>
 
-<button class="btn-home" onclick="window.location.href='/'">
+<button class="btn-home" onclick="window.location.href='/menu'">
     Home
 </button>
 
 
 
-<header>Relatórios Buscapé</header>
+<header>Relatórios SearchHub</header>
 
 
 <div class="container">
@@ -227,7 +227,7 @@ let cessaoSelecionadas = [];
 
 async function carregarOps(){
 
-    const res = await fetch("http://127.0.0.1:8000/ops");
+    const res = await fetch("/ops");
     const data = await res.json();
 
     const select = document.getElementById("operacao");
@@ -246,7 +246,7 @@ async function carregarCessoes(){
     if(!op) return;
 
     const res = await fetch(
-        `http://127.0.0.1:8000/cessoes?operacao=${encodeURIComponent(op)}`
+        `/cessoes?operacao=${encodeURIComponent(op)}`
     );
 
     const data = await res.json();
@@ -331,7 +331,7 @@ async function gerar(){
         cessoes = [];
     }
 
-    const res = await fetch("http://127.0.0.1:8000/relatorio/exportar", {
+    const res = await fetch("relatorio/exportar", {
         method:"POST",
         headers: {"Content-Type":"application/json"},
         body: JSON.stringify({

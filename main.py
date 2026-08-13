@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from rotas import login
 from pathlib import Path
+from autenticacao_middleware import AuthenticationToken
 
 import sqlite3
 import io
@@ -16,16 +17,24 @@ import zipfile
 import pandas
 import os
 
-
-
+from autorizacao import verificar_nivel
+from rotas import login, registro, logout, admin
+from logs.auditoria_middleware import AuditoriaMiddleware
+from logs.logger import logger
+from logs.auditoria import registrar
 
 app = FastAPI()
 
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.add_middleware(AuthenticationToken)
+app.add_middleware(AuditoriaMiddleware)
+
 
 app.include_router(login.router)
-
+app.include_router(registro.router)
+app.include_router(logout.router)
+app.include_router(admin.router)
 
 PASTA_RESULTADOS = "resultados"
 
@@ -49,27 +58,46 @@ app.add_middleware(
 # ---------------- HOME ----------------
 @app.get("/")
 async def front_page(request: Request):
+
+    registrar(
+        request,
+        "ACESSO_HOME"
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="login.html",
+        context={
+            "titulo": "SearchHub",
+            "versao": "1.0.0",
+        }
+    )
+
+
+# ---------------- FRONT ----------------
+
+@app.get("/menu")
+async def menu(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="index.html",
         context={
-            "titulo": "Buscapé",
+            "titulo": "Menu inicial",
             "versao": "1.0.0",
         }
     )
 
 
 
-# ---------------- FRONT ----------------
-#@app.get("/menu")
-#def menu():
-#    return FileResponse("index.html")
-
 # ---------------- BUSCA ----------------
 @app.get("/buscar")
-def buscar(q: str, limit: int = 1000, offset: int = 0):
+def buscar(
+    q: str,
+    limit: int = 1000,
+    offset: int = 0,
+    request: Request = None
+):
 
-    # Divide por vírgula e remove espaços
     termos = [t.strip() for t in q.split(",") if t.strip()]
 
     if not termos:
@@ -79,18 +107,18 @@ def buscar(q: str, limit: int = 1000, offset: int = 0):
     con.row_factory = sqlite3.Row
     cursor = con.cursor()
 
-    # Monta os WHEREs dinamicamente
     where = " OR ".join(
         "(nome LIKE ? OR documento LIKE ? OR ccb LIKE ? OR operacao LIKE ?)"
         for _ in termos
     )
 
     params = []
+
     for termo in termos:
         like = f"%{termo}%"
         params.extend([like, like, like, like])
 
-    # COUNT
+
     cursor.execute(
         f"""
         SELECT COUNT(*)
@@ -102,7 +130,7 @@ def buscar(q: str, limit: int = 1000, offset: int = 0):
 
     total = cursor.fetchone()[0]
 
-    # SELECT
+
     cursor.execute(
         f"""
         SELECT id, originador, fundo, operacao, cessao, ccb, documento, nome, lastro
@@ -113,8 +141,18 @@ def buscar(q: str, limit: int = 1000, offset: int = 0):
         params + [limit, offset],
     )
 
+
     rows = cursor.fetchall()
+
     con.close()
+
+
+    logger.info(
+        f"usuario={request.state.usuario.email} | "
+        f"BUSCA | termo={q} | "
+        f"total_encontrado={total}"
+    )
+
 
     return {
         "total": total,
@@ -122,9 +160,8 @@ def buscar(q: str, limit: int = 1000, offset: int = 0):
     }
 
 
-
 @app.get("/exportar")
-def exportar(q: str):
+def exportar(q: str, request: Request):
 
     termos = [t.strip() for t in q.split(",") if t.strip()]
 
@@ -145,7 +182,7 @@ def exportar(q: str):
         params.extend([like, like, like, like])
 
     query = f"""
-        SELECT originador, fundo, operacao, cessao, ccb, documento, nome, lastro
+        SELECT originador, fundo, operacao, cessao, ccb, documento, nome
         FROM clientes
         WHERE {where}
     """
@@ -161,11 +198,16 @@ def exportar(q: str):
 
     output.seek(0)
 
+    logger.info(
+    f"usuario={request.state.usuario.email} | "
+    f"EXPORTACAO | termo={q}"
+    )
+
     return Response(
         content=output.read(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
-            "Content-Disposition": "attachment; filename=buscape_resultado.xlsx"
+            "Content-Disposition": "attachment; filename=searchhub_resultado.xlsx"
         }
     )
 
@@ -182,9 +224,10 @@ async def consulta(request: Request):
         }
     )
 
-
 @app.get("/relatorios")
 async def relatorios(request: Request):
+
+
     return templates.TemplateResponse(
         name="relatorios.html",
         request=request,
@@ -225,7 +268,7 @@ async def front_page(request: Request):
         request=request,
         name="index.html",
         context={
-            "titulo": "Buscapé",
+            "titulo": "SearchHub",
             "versao": "1.0.0",
         }
     )
@@ -348,7 +391,7 @@ def obter_documento(id):
 
 
 @app.get("/download-lastro/{id}")
-async def baixar_lastro(id: int):
+async def baixar_lastro(id: int, request: Request):
 
     s3 = boto3.client(
         "s3",
@@ -418,6 +461,11 @@ async def baixar_lastro(id: int):
     zip_buffer.seek(0)
 
 
+    logger.info(
+    f"usuario={request.state.usuario.email} | "
+    f"DOWNLOAD_LASTRO | id_cliente={id}"
+    )
+    
     return StreamingResponse(
         zip_buffer,
         media_type="application/zip",
@@ -431,9 +479,9 @@ async def baixar_lastro(id: int):
 
 
 ###
-
 @app.post("/identificar-fundo")
 async def identificar_fundo(
+    request: Request,
     file: UploadFile = File(...)
 ):
 
@@ -461,7 +509,6 @@ async def identificar_fundo(
         )
 
 
-
     obrigatorias = [
         "CPF",
         "CCB",
@@ -484,7 +531,6 @@ async def identificar_fundo(
         )
 
 
-
     # normaliza CCB
 
     df["CCB"] = (
@@ -502,14 +548,12 @@ async def identificar_fundo(
     ]
 
 
-
     if not lista_ccb:
 
         raise HTTPException(
             status_code=400,
             detail="Nenhuma CCB encontrada na planilha"
         )
-
 
 
     con = sqlite3.connect(
@@ -519,7 +563,6 @@ async def identificar_fundo(
     con.row_factory = sqlite3.Row
 
     cursor = con.cursor()
-
 
 
     placeholders = ",".join(
@@ -545,8 +588,8 @@ async def identificar_fundo(
     con.close()
 
 
-
     mapa_fundos = {}
+
 
     for row in registros:
 
@@ -564,7 +607,6 @@ async def identificar_fundo(
 
 
 
-
     df["ORIGEM"] = (
 
         df["CCB"]
@@ -574,11 +616,9 @@ async def identificar_fundo(
     )
 
 
-
     nome_original = Path(
         file.filename
     ).stem
-
 
 
     nome_resultado = (
@@ -587,15 +627,11 @@ async def identificar_fundo(
     )
 
 
-
     caminho = os.path.join(
         PASTA_RESULTADOS,
         nome_resultado
     )
 
-
-
-    # salva excel
 
     df.to_excel(
         caminho,
@@ -603,11 +639,31 @@ async def identificar_fundo(
     )
 
 
+    # ===========================
+    # MÉTRICAS PARA LOG / KPI
+    # ===========================
+
+    registros_encontrados = len(registros)
+
+    registros_nao_encontrados = len(
+        df[df["ORIGEM"] == "Não encontrado"]
+    )
+
+
+    logger.info(
+        f"usuario={request.state.usuario.email} | "
+        f"IDENTIFICAR_FUNDO | "
+        f"arquivo={file.filename} | "
+        f"linhas_planilha={len(df)} | "
+        f"ccbs_processadas={len(lista_ccb)} | "
+        f"registros_encontrados={registros_encontrados} | "
+        f"registros_nao_encontrados={registros_nao_encontrados}"
+    )
+
 
     # ===========================
     # LIMPEZA PARA JSON
     # ===========================
-
 
     df_json = df.copy()
 
@@ -636,10 +692,9 @@ async def identificar_fundo(
 
         nova_linha = {}
 
+
         for chave, valor in linha.items():
 
-
-            # converte numpy types
 
             if pd.isna(valor):
 
@@ -662,8 +717,6 @@ async def identificar_fundo(
         )
 
 
-
-
     return {
 
         "sucesso": True,
@@ -672,12 +725,13 @@ async def identificar_fundo(
 
         "total_linhas": len(df),
 
-        "fundos_encontrados": len(registros),
+        "fundos_encontrados": registros_encontrados,
+
+        "registros_nao_encontrados": registros_nao_encontrados,
 
         "data": dados
 
     }
-
 
 @app.get("/baixar-resultado/{arquivo}")
 def baixar_resultado(
@@ -712,23 +766,3 @@ def baixar_resultado(
 
 
 
-
-'''
-@app.get("/ops")
-def listar_operacoes():
-
-    con = sqlite3.connect("clientes.db")
-    cursor = con.cursor()
-
-    cursor.execute("""
-        SELECT DISTINCT operacao
-        FROM clientes
-        ORDER BY operacao
-    """)
-
-    data = [r[0] for r in cursor.fetchall()]
-    con.close()
-
-    return data
-
-'''

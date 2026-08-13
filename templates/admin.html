@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Administração - SearchHub</title>
+
+
+<link rel="icon" type="image/x-icon"
+href="{{ url_for('static', path='images/icon.ico') }}">
+
+
+<link rel="stylesheet"
+href="{{ url_for('static', path='css/style.css') }}">
+
+
+</head>
+
+
+<body>
+
+
+<div class="container mt-4">
+
+
+<header class="admin-header">
+
+<h1>
+Painel Administrativo
+</h1>
+
+
+    <button onclick="window.location.href='/menu'"
+class="home-btn">
+Home
+</button>
+
+</header>
+
+
+
+
+
+<div class="row g-4 mb-4">
+
+
+<div class="col-md-4">
+
+<div class="admin-card text-center">
+
+<h3>
+Total usuários
+</h3>
+
+
+<div class="admin-number primary">
+
+{{ usuarios|length }}
+
+</div>
+
+
+</div>
+
+</div>
+
+
+
+
+
+<div class="col-md-4">
+
+<div class="admin-card text-center">
+
+<h3>
+Usuários online
+</h3>
+
+
+<div class="admin-number success">
+
+{{ usuarios | selectattr("online") | list | length }}
+
+</div>
+
+
+</div>
+
+</div>
+
+
+
+
+
+
+<div class="col-md-4">
+
+<div class="admin-card text-center">
+
+<h3>
+Aguardando aprovação
+</h3>
+
+
+<div class="admin-number warning">
+
+{{ usuarios | selectattr("nivel", "equalto", "pendente") | list | length }}
+
+</div>
+
+
+</div>
+
+</div>
+
+
+
+</div>
+
+
+
+
+
+
+
+
+<div class="admin-card">
+
+
+<h2>
+Usuários cadastrados
+</h2>
+
+
+
+<div class="admin-table-container">
+
+
+<table class="admin-table">
+
+
+<thead>
+
+<tr>
+
+<th>Nome</th>
+
+<th>Email</th>
+
+<th>Nível</th>
+
+<th>Status</th>
+
+<th>Último Login</th>
+
+<th>Último Logout</th>
+
+<th>IP</th>
+
+<th>Ações</th>
+
+</tr>
+
+</thead>
+
+
+
+<tbody>
+
+
+
+{% for usuario in usuarios %}
+
+
+<tr>
+
+
+<td>
+{{ usuario.nome }}
+</td>
+
+
+
+<td>
+{{ usuario.email }}
+</td>
+
+
+
+
+<td>
+
+
+{% if usuario.nivel == "admin" %}
+
+<span class="badge-admin">
+Admin
+</span>
+
+
+{% elif usuario.nivel == "operacional" %}
+
+<span class="badge-operacional">
+Operacional
+</span>
+
+
+{% else %}
+
+<span class="badge-pendente">
+Pendente
+</span>
+
+
+{% endif %}
+
+
+</td>
+
+
+
+
+
+<td>
+
+
+{% if usuario.online %}
+
+<span class="status-online">
+🟢 Online
+</span>
+
+
+{% else %}
+
+<span class="status-offline">
+🔴 Offline
+</span>
+
+
+{% endif %}
+
+
+
+</td>
+
+
+
+
+<td>
+{{ usuario.ultimo_login or "-" }}
+</td>
+
+
+<td>
+{{ usuario.ultimo_logout or "-" }}
+</td>
+
+
+<td>
+{{ usuario.ultimo_ip or "-" }}
+</td>
+
+
+
+
+<td>
+
+
+
+{% if usuario.nivel == "pendente" %}
+
+
+<form method="post"
+action="/admin/aprovar/{{ usuario.id }}">
+
+
+<button class="btn">
+
+Aprovar
+
+</button>
+
+
+</form>
+
+
+{% endif %}
+
+
+
+
+{% if usuario.online %}
+
+
+<form method="post"
+action="/admin/remover-sessao/{{ usuario.id }}">
+
+
+<button class="btn"
+style="background:#dc3545;color:white;margin-top:10px">
+
+Desconectar
+
+</button>
+
+
+</form>
+
+
+{% endif %}
+
+
+
+
+</td>
+
+
+
+</tr>
+
+
+
+{% endfor %}
+
+
+
+</tbody>
+
+
+</table>
+
+
+</div>
+
+
+</div>
+
+
+
+
+
+
+
+<div class="admin-card mt-4">
+
+
+<h2>
+Últimas atividades
+</h2>
+
+
+<div class="log-area">
+
+
+{% for linha in logs %}
+
+<div class="log-line">
+
+{{ linha }}
+
+</div>
+
+
+{% endfor %}
+
+
+</div>
+
+
+</div>
+
+
+
+</div>
+
+
+
+
+
+<footer class="text-center mt-5 p-3">
+
+SearchHub - Painel Administrativo
+
+</footer>
+
+
+
+</body>
+
+</html>

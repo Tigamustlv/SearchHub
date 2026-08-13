@@ -6,10 +6,8 @@
 <div class="row">
     <div class="col-md-12">
         <div class="jumbotron bg-primary text-white p-5 rounded">
-            <h1 class="display-4"> 🔍 Sistema Buscapé 🔍</h1>
-            <p class="lead">
-                
-            </p>
+            <h1 class="display-4"> 🔍 Sistema SearchHub 🔍</h1>
+            <p class="lead"></p>
             <hr class="my-4 bg-white">
             <p>Sistema Funcional para localização e exportação de operações e títulos.</p>
             <p class="mb-0">
@@ -19,7 +17,10 @@
     </div>
 </div>
 
+
 <div class="row mt-5">
+
+    {% if request.state.usuario.nivel in ["operacional", "admin"] %}
     <div class="col-md-4">
         <div class="card shadow-sm">
             <div class="card-body text-center">
@@ -37,16 +38,17 @@
         <div class="card shadow-sm">
             <div class="card-body text-center">
                 <h2>📄</h2>
-                <h5 class="card-title">Buscar Clientes (Planiha)</h5>
+                <h5 class="card-title">Buscar Clientes (Planilha)</h5>
                 <p class="card-text">
-                    Identifique e visualize clientes em diferentes fundos usando Planilha.
-                </p>
+                    Identifique clientes em diferentes fundos usando Planilha.</p>
                 <a href="/identifica-fundo" class="btn btn-primary">Acessar</a>
             </div>
         </div>
     </div>
+    {% endif %}
 
 
+    {% if request.state.usuario.nivel in ["admin"] %}
     <div class="col-md-4">
         <div class="card shadow-sm">
             <div class="card-body text-center">
@@ -59,21 +61,29 @@
             </div>
         </div>
     </div>
-    
+
+    {% endif %}
+
+
+    {% if request.state.usuario.nivel in ["operacional", "admin"] %}
     <div class="col-md-4">
         <div class="card shadow-sm">
             <div class="card-body text-center">
                 <h2>🧮</h2>
                 <h5 class="card-title">Calculadora</h5>
                 <p class="card-text">
-                    Calcule o Saldo devedor.
+                    Calcule o saldo devedor.
                 </p>
                 <a href="/calculadora" class="btn btn-primary">Acessar</a>
             </div>
         </div>
     </div>
-    
 
+
+    {% endif %}
+
+    <!-- Somente Admin -->
+    {% if request.state.usuario.nivel == "admin" %}
 
     <div class="col-md-4">
         <div class="card shadow-sm">
@@ -87,5 +97,24 @@
             </div>
         </div>
     </div>
+
+
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-body text-center">
+                <h2>🦸‍♂️</h2>
+                <h5 class="card-title">Super Admin</h5>
+                <p class="card-text">
+                    Usuários, Permissões, Logs e afins.
+                </p>
+                <a href="/admin" class="btn btn-primary" target="_blank">Acessar</a>
+            </div>
+        </div>
+    </div>
+
+    {% endif %}
+
+
+    
 </div>
 {% endblock %}

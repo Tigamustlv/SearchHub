@@ -94,7 +94,6 @@ body {
     gap: 1rem;
 }
 
-/* Estilos específicos para formulários de ordem de serviço */
 .form-ordem-servico textarea {
     resize: vertical;
     min-height: 100px;
@@ -169,4 +168,209 @@ footer a:hover {
 
 @keyframes spin {
     to { transform: rotate(360deg); }
+}
+
+
+/* ==================== PAINEL ADMIN ==================== */
+
+.admin-header {
+    background: var(--primary-color);
+    color: white;
+    padding: 20px;
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 10px rgba(0,0,0,.15);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+
+.admin-header h1 {
+    margin: 0;
+    font-size: 1.8rem;
+}
+
+
+
+.admin-card {
+    background: white;
+    padding: 25px;
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 10px rgba(0,0,0,.08);
+    animation: fadeIn .5s ease;
+}
+
+
+
+.admin-card h2,
+.admin-card h3 {
+    margin-bottom: 20px;
+}
+
+
+
+.admin-number {
+
+    font-size: 3rem;
+    font-weight: 700;
+    margin-top: 10px;
+
+}
+
+
+.admin-number.primary {
+    color: var(--primary-color);
+}
+
+
+.admin-number.success {
+    color: var(--success-color);
+}
+
+
+.admin-number.warning {
+    color: #d39e00;
+}
+
+
+
+.status-online {
+
+    color: var(--success-color);
+    font-weight: bold;
+
+}
+
+
+.status-offline {
+
+    color: var(--danger-color);
+    font-weight: bold;
+
+}
+
+
+
+.badge-admin {
+
+    background: var(--primary-color);
+    color:white;
+    padding:6px 12px;
+    border-radius:20px;
+
+}
+
+
+.badge-operacional {
+
+    background:var(--success-color);
+    color:white;
+    padding:6px 12px;
+    border-radius:20px;
+
+}
+
+
+
+.badge-pendente {
+
+    background:var(--warning-color);
+    color:#212529;
+    padding:6px 12px;
+    border-radius:20px;
+
+}
+
+
+
+.admin-table-container {
+
+    overflow-x:auto;
+
+}
+
+
+
+.admin-table {
+
+    width:100%;
+    border-collapse:collapse;
+
+}
+
+
+.admin-table th {
+
+    background:var(--primary-color);
+    color:white;
+    padding:12px;
+
+}
+
+
+.admin-table td {
+
+    padding:12px;
+    border-bottom:1px solid #eee;
+
+}
+
+
+
+.admin-table tr:hover {
+
+    background:#f8f9fa;
+
+}
+
+
+
+.log-area {
+
+    height:250px;
+    overflow-y:auto;
+    background:#f8f9fa;
+    padding:15px;
+    border-radius:var(--border-radius);
+
+}
+
+
+/* ==================== LOGS ADMIN ==================== */
+
+
+.log-area {
+
+    height:300px;
+
+    overflow-y:auto;
+
+    background:#212529;
+
+    color:#00ff88;
+
+    padding:15px;
+
+    border-radius:var(--border-radius);
+
+    font-family:
+    "Courier New",
+    monospace;
+
+    font-size:0.9rem;
+
+}
+
+
+
+.log-line {
+
+    padding:4px 0;
+
+    border-bottom:
+    1px solid rgba(255,255,255,.05);
+
+    white-space:pre-wrap;
+
 }
