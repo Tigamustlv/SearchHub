@@ -5,7 +5,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
-from rotas import login
+from rotas import login, parcelas
 from pathlib import Path
 from autenticacao_middleware import AuthenticationToken
 
@@ -23,6 +23,14 @@ from logs.auditoria_middleware import AuditoriaMiddleware
 from logs.logger import logger
 from logs.auditoria import registrar
 
+
+import mariadb
+from decimal import Decimal, InvalidOperation
+from datetime import date, datetime
+from pydantic import BaseModel
+from database.mariadb import obter_conexao
+
+
 app = FastAPI()
 
 templates = Jinja2Templates(directory="templates")
@@ -35,6 +43,7 @@ app.include_router(login.router)
 app.include_router(registro.router)
 app.include_router(logout.router)
 app.include_router(admin.router)
+app.include_router(parcelas.router)
 
 PASTA_RESULTADOS = "resultados"
 
@@ -42,6 +51,7 @@ os.makedirs(
     PASTA_RESULTADOS,
     exist_ok=True
 )
+
 
 
 
@@ -213,6 +223,263 @@ def exportar(q: str, request: Request):
 
 
 
+@app.get("/exportar-fluxo")
+def exportar_fluxo(
+    q: str,
+    request: Request
+):
+
+    termos = [
+        t.strip()
+        for t in q.split(",")
+        if t.strip()
+    ]
+
+    if not termos:
+        raise HTTPException(
+            status_code=400,
+            detail="Consulta vazia"
+        )
+
+    con_sqlite = None
+    con_mariadb = None
+
+    try:
+
+        # ==========================================
+        # 1. BUSCA OS CLIENTES NO SQLITE
+        # ==========================================
+
+        con_sqlite = sqlite3.connect("clientes.db")
+        con_sqlite.row_factory = sqlite3.Row
+
+        cursor_sqlite = con_sqlite.cursor()
+
+        where = " OR ".join(
+            "(nome LIKE ? OR documento LIKE ? OR ccb LIKE ? OR operacao LIKE ?)"
+            for _ in termos
+        )
+
+        params = []
+
+        for termo in termos:
+
+            like = f"%{termo}%"
+
+            params.extend([
+                like,
+                like,
+                like,
+                like
+            ])
+
+        cursor_sqlite.execute(
+            f"""
+            SELECT
+                ccb,
+                documento,
+                nome
+            FROM clientes
+            WHERE {where}
+            """,
+            params
+        )
+
+        rows_clientes = cursor_sqlite.fetchall()
+
+        # ==========================================
+        # 2. MONTA MAPA CCB -> CLIENTE
+        # ==========================================
+
+        clientes = {}
+
+        for row in rows_clientes:
+
+            ccb = (
+                str(row["ccb"]).strip()
+                if row["ccb"] is not None
+                else ""
+            )
+
+            if not ccb:
+                continue
+
+            clientes[ccb] = {
+                "nome": row["nome"],
+                "documento": row["documento"]
+            }
+
+        ccbs = list(clientes.keys())
+
+        if not ccbs:
+
+            raise HTTPException(
+                status_code=404,
+                detail="Nenhuma CCB encontrada."
+            )
+
+        # ==========================================
+        # 3. BUSCA AS PARCELAS NO MARIADB
+        # ==========================================
+
+        con_mariadb = obter_conexao()
+
+        cursor_mariadb = con_mariadb.cursor()
+
+        placeholders = ",".join(
+            ["?"] * len(ccbs)
+        )
+
+        cursor_mariadb.execute(
+            f"""
+            SELECT
+                `CCB`,
+                `Seu NÃºmero`,
+                `Vencimento`,
+                `Valor Nominal`,
+                `Valor de AquisiÃ§Ã£o`,
+                `Data LiquidaÃ§Ã£o`
+            FROM searchhub.parcelas
+            WHERE `CCB` IN ({placeholders})
+            ORDER BY
+                `CCB`,
+                `Vencimento`
+            """,
+            ccbs
+        )
+
+        rows_parcelas = cursor_mariadb.fetchall()
+
+        # ==========================================
+        # 4. MONTA DATAFRAME
+        # ==========================================
+
+        dados = []
+
+        for row in rows_parcelas:
+
+            ccb = (
+                str(row[0]).strip()
+                if row[0] is not None
+                else ""
+            )
+
+            cliente = clientes.get(
+                ccb,
+                {}
+            )
+
+            dados.append({
+
+                "CCB": ccb,
+
+                "Nome Cliente": cliente.get(
+                    "nome"
+                ),
+
+                "CPF": cliente.get(
+                    "documento"
+                ),
+
+                "Seu Número": row[1],
+
+                "Vencimento": row[2],
+
+                "Valor Nominal": row[3],
+
+                "Valor de Aquisição": row[4],
+
+                "Data Liquidação": row[5],
+
+            })
+
+        df = pd.DataFrame(dados)
+
+        # ==========================================
+        # 5. FORMATA DATAS
+        # ==========================================
+
+        if not df.empty:
+
+            for coluna in [
+                "Vencimento",
+                "Data Liquidação"
+            ]:
+
+                df[coluna] = pd.to_datetime(
+                    df[coluna],
+                    errors="coerce"
+                )
+
+        # ==========================================
+        # 6. GERA EXCEL
+        # ==========================================
+
+        output = io.BytesIO()
+
+        with pd.ExcelWriter(
+            output,
+            engine="openpyxl"
+        ) as writer:
+
+            df.to_excel(
+                writer,
+                index=False,
+                sheet_name="Parcelas"
+            )
+
+        output.seek(0)
+
+        # ==========================================
+        # 7. LOG
+        # ==========================================
+
+        logger.info(
+            f"usuario={request.state.usuario.email} | "
+            f"EXPORTACAO_FLUXO | "
+            f"termo={q} | "
+            f"ccbs={len(ccbs)} | "
+            f"parcelas={len(df)}"
+        )
+
+        # ==========================================
+        # 8. DOWNLOAD
+        # ==========================================
+
+        return Response(
+            content=output.read(),
+            media_type=(
+                "application/vnd.openxmlformats-officedocument."
+                "spreadsheetml.sheet"
+            ),
+            headers={
+                "Content-Disposition":
+                'attachment; filename="searchhub_fluxo_parcelas.xlsx"'
+            }
+        )
+
+    except mariadb.Error as e:
+
+        logger.exception(
+            f"usuario={request.state.usuario.email} | "
+            f"ERRO_EXPORTACAO_FLUXO | "
+            f"erro={str(e)}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Erro ao consultar fluxo de parcelas"
+        )
+
+    finally:
+
+        if con_sqlite is not None:
+            con_sqlite.close()
+
+        if con_mariadb is not None:
+            con_mariadb.close()
+
+                
 @app.get("/consulta")
 async def consulta(request: Request):
     return templates.TemplateResponse(
@@ -223,6 +490,20 @@ async def consulta(request: Request):
             "titulo": "Consulta",
         }
     )
+
+
+@app.get("/consulta-new")
+async def consulta(request: Request):
+    return templates.TemplateResponse(
+        name="consulta-copy.html",
+        request=request,
+        context={
+            "request": request,
+            "titulo": "Consulta Teste",
+        }
+    )
+
+
 
 @app.get("/relatorios")
 async def relatorios(request: Request):
@@ -361,7 +642,7 @@ def exportar_relatorio(payload: dict):
 
 AWS_ACCESS_KEY_ID=''
 AWS_SECRET_ACCESS_KEY=''
-AWS_REGION=''
+AWS_REGION='sa-east-1'
 AWS_BUCKET_NAME=''
 
 

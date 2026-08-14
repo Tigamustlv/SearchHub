@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Consulta - SearchHub</title>
+
+<link
+    rel="icon"
+    type="image/x-icon"
+    href="{{ url_for('static', path='images/icon.ico') }}"
+>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Segoe UI, Arial, sans-serif;
+}
+
+body{
+    background:#f5f7fa;
+}
+
+header{
+    background:#0d6efd;
+    color:white;
+    height:70px;
+    display:flex;
+    align-items:center;
+    padding:0 40px;
+    font-size:24px;
+    font-weight:600;
+    box-shadow:0 2px 10px rgba(0,0,0,.15);
+}
+
+.container{
+    width:95%;
+    max-width:1200px;
+    margin:40px auto;
+}
+
+.card{
+    background:white;
+    border-radius:10px;
+    box-shadow:0 5px 15px rgba(0,0,0,.08);
+    padding:30px;
+}
+
+h2{
+    margin-bottom:20px;
+    color:#333;
+}
+
+.pesquisa{
+    display:flex;
+    gap:15px;
+    align-items:center;
+}
+
+input{
+    flex:1;
+    padding:14px;
+    border:1px solid #ccc;
+    border-radius:8px;
+    font-size:16px;
+}
+
+input:focus{
+    outline:none;
+    border-color:#0d6efd;
+}
+
+button{
+    padding:14px 28px;
+    background:#0d6efd;
+    color:white;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:16px;
+    transition:.3s;
+}
+
+button:hover{
+    background:#0b5ed7;
+}
+
+button.btnpag{
+    padding:10px 12px;
+    background:#0d6efd;
+    color:white;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:16px;
+}
+
+.info{
+    margin-top:12px;
+    color:#777;
+    font-size:14px;
+}
+
+#resultadoInfo{
+    margin-top:15px;
+    font-weight:600;
+    color:#333;
+}
+
+table{
+    width:100%;
+    margin-top:20px;
+    border-collapse:collapse;
+}
+
+thead{
+    background:#0d6efd;
+    color:white;
+}
+
+th,
+td{
+    padding:14px;
+    text-align:left;
+    border-bottom:1px solid #e5e5e5;
+}
+
+tbody tr:hover{
+    background:#f4f8ff;
+}
+
+.semResultado{
+    text-align:center;
+    color:#777;
+    padding:30px;
+}
+
+.loading{
+    text-align:center;
+    padding:20px;
+    color:#666;
+}
+
+
+/* =========================
+   LINHAS DOS CLIENTES
+========================= */
+
+.linha-cliente{
+    cursor:pointer;
+}
+
+.linha-cliente:hover{
+    background:#f4f8ff;
+}
+
+
+/* =========================
+   MODAL DE PARCELAS
+========================= */
+
+.modal{
+    display:none;
+    position:fixed;
+    z-index:2000;
+    left:0;
+    top:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,.55);
+    align-items:center;
+    justify-content:center;
+}
+
+.modal-content{
+    background:white;
+    width:90%;
+    max-width:1100px;
+    max-height:85vh;
+    border-radius:12px;
+    box-shadow:0 10px 40px rgba(0,0,0,.25);
+
+    overflow:hidden;
+
+    display:flex;
+    flex-direction:column;
+}
+
+.modal-header{
+    background:#0d6efd;
+    color:white;
+
+    padding:20px 25px;
+
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.modal-header h3{
+    margin:0;
+    font-size:20px;
+}
+
+.modal-close{
+    background:transparent;
+    border:none;
+    color:white;
+    font-size:28px;
+    cursor:pointer;
+    padding:0 5px;
+}
+
+.modal-close:hover{
+    background:transparent;
+}
+
+.modal-body{
+    padding:20px;
+    overflow:auto;
+}
+
+.info-contrato{
+    background:#f4f8ff;
+
+    border-left:4px solid #0d6efd;
+
+    padding:12px 15px;
+
+    margin-bottom:15px;
+
+    color:#333;
+
+    font-size:16px;
+}
+
+.info-contrato strong{
+    color:#0d6efd;
+}
+
+
+/* =========================
+   TABELA DE PARCELAS
+========================= */
+
+.tabela-parcelas{
+    width:100%;
+    margin-top:0;
+    border-collapse:collapse;
+}
+
+.tabela-parcelas thead{
+    background:#0d6efd;
+    color:white;
+}
+
+.tabela-parcelas th,
+.tabela-parcelas td{
+    padding:12px;
+    border-bottom:1px solid #e5e5e5;
+    text-align:left;
+}
+
+.tabela-parcelas tbody tr:hover{
+    background:#f4f8ff;
+}
+
+.tabela-parcelas tfoot{
+    background:#f1f3f5;
+    font-weight:bold;
+}
+
+.tabela-parcelas tfoot td{
+    border-top:2px solid #0d6efd;
+}
+
+.total-label{
+    text-align:right !important;
+}
+
+.modal-loading{
+    text-align:center;
+    padding:40px;
+    color:#666;
+}
+
+.modal-vazio{
+    text-align:center;
+    padding:40px;
+    color:#777;
+}
+
+
+/* =========================
+   PAGINAÇÃO
+========================= */
+
+.paginacao{
+    margin-top:20px;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:15px;
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<!-- HOME -->
+
+<button
+    onclick="window.location.href='/menu'"
+    style="
+        position:fixed;
+        top:15px;
+        right:15px;
+        padding:10px 15px;
+        border:none;
+        border-radius:8px;
+        background:#6c757d;
+        color:white;
+        cursor:pointer;
+        z-index:999;
+    "
+>
+    Home
+</button>
+
+
+<header>
+    Consulta SearchHub (Ambiente de Teste)
+</header>
+
+
+<div class="container">
+
+    <div class="card">
+
+        <h2>
+            Consultar Cliente
+        </h2>
+
+
+        <div class="pesquisa">
+
+            <input
+                id="pesquisa"
+                placeholder="Digite algo..."
+                onkeydown="if(event.key==='Enter') buscar(1)"
+            >
+
+            <button onclick="buscar(1)">
+                🔍 Pesquisar
+            </button>
+
+            <button
+                class="btnpag"
+                onclick="baixarExcel()"
+            >
+                ⬇ Exportar Excel
+            </button>
+
+
+            <button class="btnpag" onclick="baixarFluxo()">
+                📊 Exportar Fluxo
+            </button>
+
+        </div>
+
+
+        <div id="resultadoInfo"></div>
+
+
+        <table>
+
+            <thead>
+
+                <tr>
+                    <th>Originador</th>
+                    <th>Fundo</th>
+                    <th>Operação</th>
+                    <th>Cessão</th>
+                    <th>CCB</th>
+                    <th>Documento</th>
+                    <th>Nome</th>
+                    <th>Lastro</th>
+                </tr>
+
+            </thead>
+
+
+            <tbody id="resultado">
+
+                <tr>
+
+                    <td
+                        colspan="8"
+                        class="semResultado"
+                    >
+                        Nenhuma pesquisa realizada.
+                    </td>
+
+                </tr>
+
+            </tbody>
+
+        </table>
+
+
+        <div class="paginacao">
+
+            <button
+                class="btnpag"
+                onclick="anterior()"
+            >
+                ⬅
+            </button>
+
+            <span id="paginaInfo"></span>
+
+            <button
+                class="btnpag"
+                onclick="proxima()"
+            >
+                ➡
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- =========================
+     MODAL PARCELAS
+========================= -->
+
+<div
+    id="modalParcelas"
+    class="modal"
+>
+
+    <div class="modal-content">
+
+
+        <div class="modal-header">
+
+            <h3>
+                Fluxo de Parcelas
+            </h3>
+
+            <button
+                class="modal-close"
+                onclick="fecharModal()"
+            >
+                &times;
+            </button>
+
+        </div>
+
+
+        <div class="modal-body">
+
+
+            <div
+                id="modalInfo"
+                class="info-contrato"
+            ></div>
+
+
+            <div id="modalConteudo">
+
+                <div class="modal-loading">
+                    Carregando parcelas...
+                </div>
+
+            </div>
+
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<script>
+
+
+/* =========================
+   PAGINAÇÃO
+========================= */
+
+let paginaAtual = 1;
+
+const limit = 1000;
+
+let ultimoQuery = "";
+
+let totalRegistros = 0;
+
+
+
+/* =========================
+   BUSCA CLIENTES
+========================= */
+
+async function buscar(pagina = 1){
+
+    const valor =
+        document
+        .getElementById("pesquisa")
+        .value
+        .trim();
+
+
+    const tbody =
+        document.getElementById("resultado");
+
+
+    const info =
+        document.getElementById("resultadoInfo");
+
+
+    if(valor === ""){
+
+        alert("Digite algo");
+
+        return;
+
+    }
+
+
+    paginaAtual = pagina;
+
+    ultimoQuery = valor;
+
+
+    const offset =
+        (pagina - 1) * limit;
+
+
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="8">
+                Buscando...
+            </td>
+        </tr>
+    `;
+
+
+    try{
+
+        const response = await fetch(
+            `/buscar?q=${encodeURIComponent(valor)}&limit=${limit}&offset=${offset}`
+        );
+
+
+        if(!response.ok){
+
+            throw new Error(
+                "Erro ao realizar busca."
+            );
+
+        }
+
+
+        const res =
+            await response.json();
+
+
+        const data =
+            res.data || [];
+
+
+        totalRegistros =
+            res.total || 0;
+
+
+        const totalPaginas =
+            Math.ceil(
+                totalRegistros / limit
+            );
+
+
+        document
+            .getElementById("paginaInfo")
+            .innerText =
+                `Página ${paginaAtual} de ${totalPaginas}`;
+
+
+        info.innerHTML =
+            `${totalRegistros} resultados encontrados`;
+
+
+        let html = "";
+
+
+        data.forEach(item => {
+
+
+            /*
+             * Guardamos os dados da linha
+             * em data attributes.
+             *
+             * Isso evita problemas com aspas
+             * no nome ou na CCB.
+             */
+
+            const ccb =
+                escapeHtml(
+                    item.ccb ?? ""
+                );
+
+
+            const nome =
+                escapeHtml(
+                    item.nome ?? ""
+                );
+
+
+            const cpf = 
+                escapeHtml(
+                    item.documento ?? ""
+                );
+
+            html += `
+
+                <tr
+                    class="linha-cliente"
+                    data-ccb="${ccb}"
+                    data-nome="${nome}"
+                    data-cpf="${cpf}"
+                    onclick="abrirParcelas(this)"
+                    title="Clique para visualizar o fluxo de parcelas"
+                >
+
+                    <td>
+                        ${escapeHtml(item.originador ?? '')}
+                    </td>
+
+                    <td>
+                        ${escapeHtml(item.fundo ?? '')}
+                    </td>
+
+                    <td>
+                        ${escapeHtml(item.operacao ?? '')}
+                    </td>
+
+                    <td>
+                        ${escapeHtml(item.cessao ?? '')}
+                    </td>
+
+                    <td>
+                        ${ccb}
+                    </td>
+
+                    <td>
+                        ${escapeHtml(item.documento ?? '')}
+                    </td>
+
+                    <td>
+                        ${nome}
+                    </td>
+
+                    <td onclick="event.stopPropagation()">
+
+                        ${
+                            item.lastro &&
+                            item.lastro.trim() !== ""
+
+                            ?
+
+                            `<a href="/download-lastro/${item.id}">
+                                Baixar
+                            </a>`
+
+                            :
+
+                            ''
+                        }
+
+                    </td>
+
+                </tr>
+
+            `;
+
+        });
+
+
+        if(data.length === 0){
+
+            html = `
+                <tr>
+
+                    <td
+                        colspan="8"
+                        class="semResultado"
+                    >
+                        Nenhum resultado encontrado.
+                    </td>
+
+                </tr>
+            `;
+
+        }
+
+
+        tbody.innerHTML = html;
+
+
+    }catch(error){
+
+        console.error(error);
+
+
+        tbody.innerHTML = `
+            <tr>
+
+                <td
+                    colspan="8"
+                    class="semResultado"
+                >
+                    Erro ao realizar a busca.
+                </td>
+
+            </tr>
+        `;
+
+    }
+
+}
+
+
+
+/* =========================
+   PAGINAÇÃO
+========================= */
+
+function anterior(){
+
+    if(paginaAtual > 1){
+
+        buscar(
+            paginaAtual - 1
+        );
+
+    }
+
+}
+
+
+function proxima(){
+
+    const totalPaginas =
+        Math.ceil(
+            totalRegistros / limit
+        );
+
+
+    if(
+        paginaAtual <
+        totalPaginas
+    ){
+
+        buscar(
+            paginaAtual + 1
+        );
+
+    }
+
+}
+
+
+
+/* =========================
+   EXPORTAR
+========================= */
+
+function baixarExcel(){
+
+    const valor =
+        document
+        .getElementById("pesquisa")
+        .value
+        .trim();
+
+
+    if(valor === ""){
+
+        alert(
+            "Faça uma busca primeiro"
+        );
+
+        return;
+
+    }
+
+
+    window.open(
+        `/exportar?q=${encodeURIComponent(valor)}`,
+        "_blank"
+    );
+
+}
+
+
+function baixarFluxo(){
+
+    const valor =
+        document.getElementById("pesquisa")
+        .value
+        .trim();
+
+    if(valor === ""){
+
+        alert("Faça uma busca primeiro");
+
+        return;
+    }
+
+    window.open(
+        `/exportar-fluxo?q=${encodeURIComponent(valor)}`,
+        "_blank"
+    );
+}
+
+
+function escapeHtml(valor){
+
+    return String(valor)
+
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+
+        .replace(
+            /</g,
+            "&lt;"
+        )
+
+        .replace(
+            />/g,
+            "&gt;"
+        )
+
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+
+}
+
+
+
+/* =========================
+   ABRIR PARCELAS
+========================= */
+
+async function abrirParcelas(linha){
+
+    const ccb =
+        linha.dataset.ccb;
+
+
+    const nome =
+        linha.dataset.nome;
+
+    const cpf =
+        linha.dataset.cpf;
+
+
+    if(!ccb){
+
+        alert(
+            "Esta operação não possui CCB."
+        );
+
+        return;
+
+    }
+
+
+    const modal =
+        document.getElementById(
+            "modalParcelas"
+        );
+
+
+    const info =
+        document.getElementById(
+            "modalInfo"
+        );
+
+
+    const conteudo =
+        document.getElementById(
+            "modalConteudo"
+        );
+
+
+    /*
+     * Abre imediatamente
+     */
+
+    modal.style.display =
+        "flex";
+
+
+    /*
+     * Informações do cliente
+     */
+
+    info.innerHTML = `
+
+        <strong>
+            ${nome}
+        </strong>
+
+        — CPF:
+
+        <strong>
+            ${cpf}
+        </strong>
+
+        — CCB:
+
+        <strong>
+            ${ccb}
+        </strong>
+
+        — carregando parcelas...
+
+    `;
+
+
+    /*
+     * Loading
+     */
+
+    conteudo.innerHTML = `
+
+        <div class="modal-loading">
+
+            Carregando fluxo de parcelas...
+
+        </div>
+
+    `;
+
+
+    try{
+
+
+        const response =
+            await fetch(
+                `/parcelas?ccb=${encodeURIComponent(ccb)}`
+            );
+
+
+        if(!response.ok){
+
+            let mensagem =
+                "Erro ao consultar parcelas.";
+
+
+            try{
+
+                const erro =
+                    await response.json();
+
+
+                if(erro.detail){
+
+                    mensagem =
+                        erro.detail;
+
+                }
+
+            }catch(e){}
+
+
+            throw new Error(
+                mensagem
+            );
+
+        }
+
+
+        const res =
+            await response.json();
+
+
+        const parcelas =
+            res.data || [];
+
+
+        /*
+         * Atualiza o cabeçalho
+         *
+         * CCB: X — 10 parcelas
+         */
+
+        info.innerHTML = `
+
+            <strong>
+                ${escapeHtml(nome)}
+            </strong>
+
+            — CCB:
+
+            <strong>
+                ${escapeHtml(res.ccb || ccb)}
+            </strong>
+
+            —
+
+            <strong>
+                ${parcelas.length}
+            </strong>
+
+            parcela${parcelas.length !== 1 ? "s" : ""}
+
+        `;
+
+
+        /*
+         * Nenhuma parcela
+         */
+
+        if(parcelas.length === 0){
+
+            conteudo.innerHTML = `
+
+                <div class="modal-vazio">
+
+                    Nenhuma parcela encontrada
+                    para este contrato.
+
+                </div>
+
+            `;
+
+            return;
+
+        }
+
+
+        /*
+         * Totais
+         */
+
+        let totalNominal = 0;
+
+        let totalAquisicao = 0;
+
+
+        /*
+         * Tabela
+         */
+
+        let html = `
+
+            <table
+                class="tabela-parcelas"
+            >
+
+                <thead>
+
+                    <tr>
+
+                        <th>
+                            Seu Número
+                        </th>
+
+                        <th>
+                            Vencimento
+                        </th>
+
+                        <th>
+                            Valor Nominal
+                        </th>
+
+                        <th>
+                            Valor de Aquisição
+                        </th>
+
+                        <th>
+                            Data Liquidação
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+        `;
+
+
+        parcelas.forEach(
+            parcela => {
+
+
+                /*
+                 * Valores para soma
+                 */
+
+                const nominal =
+                    Number(
+                        parcela.valor_nominal
+                    ) || 0;
+
+
+                const aquisicao =
+                    Number(
+                        parcela.valor_aquisicao
+                    ) || 0;
+
+
+                totalNominal +=
+                    nominal;
+
+
+                totalAquisicao +=
+                    aquisicao;
+
+
+                html += `
+
+                    <tr>
+
+                        <td>
+                            ${
+                                escapeHtml(
+                                    parcela.seu_numero ?? ""
+                                )
+                            }
+                        </td>
+
+
+                        <td>
+                            ${
+                                formatarData(
+                                    parcela.vencimento
+                                )
+                            }
+                        </td>
+
+
+                        <td>
+                            ${
+                                formatarMoeda(
+                                    parcela.valor_nominal
+                                )
+                            }
+                        </td>
+
+
+                        <td>
+                            ${
+                                formatarMoeda(
+                                    parcela.valor_aquisicao
+                                )
+                            }
+                        </td>
+
+
+                        <td>
+
+                            ${
+                                parcela.data_liquidacao
+
+                                ?
+
+                                formatarData(
+                                    parcela.data_liquidacao
+                                )
+
+                                :
+
+                                `<span
+                                    style="
+                                        color:#999;
+                                    "
+                                >
+                                    Não liquidada
+                                </span>`
+                            }
+
+                        </td>
+
+                    </tr>
+
+                `;
+
+            }
+        );
+
+
+        /*
+         * Rodapé com totais
+         */
+
+        html += `
+
+                </tbody>
+
+
+                <tfoot>
+
+                    <tr>
+
+                        <td
+                            colspan="2"
+                            class="total-label"
+                        >
+                            TOTAL
+                        </td>
+
+
+                        <td>
+                            ${formatarMoeda(totalNominal)}
+                        </td>
+
+
+                        <td>
+                            ${formatarMoeda(totalAquisicao)}
+                        </td>
+
+
+                        <td></td>
+
+                    </tr>
+
+                </tfoot>
+
+
+            </table>
+
+        `;
+
+
+        conteudo.innerHTML =
+            html;
+
+
+    }catch(error){
+
+        console.error(error);
+
+
+        conteudo.innerHTML = `
+
+            <div class="modal-vazio">
+
+                Erro ao carregar
+                o fluxo de parcelas.
+
+                <br><br>
+
+                <small>
+                    ${escapeHtml(
+                        error.message
+                    )}
+                </small>
+
+            </div>
+
+        `;
+
+    }
+
+}
+
+
+
+/* =========================
+   FORMATAR DATA
+========================= */
+
+function formatarData(data){
+
+    if(!data){
+
+        return "";
+
+    }
+
+
+    const partes =
+        String(data).split("-");
+
+
+    if(partes.length === 3){
+
+        return `
+            ${partes[2]}/${partes[1]}/${partes[0]}
+        `;
+
+    }
+
+
+    return data;
+
+}
+
+
+
+/* =========================
+   FORMATAR MOEDA
+========================= */
+
+function formatarMoeda(valor){
+
+    if(
+        valor === null ||
+        valor === undefined ||
+        valor === ""
+    ){
+
+        return "";
+
+    }
+
+
+    const numero =
+        Number(valor);
+
+
+    if(
+        Number.isNaN(numero)
+    ){
+
+        return "";
+
+    }
+
+
+    return numero.toLocaleString(
+        "pt-BR",
+        {
+            style:"currency",
+            currency:"BRL"
+        }
+    );
+
+}
+
+
+
+/* =========================
+   FECHAR MODAL
+========================= */
+
+function fecharModal(){
+
+    document
+        .getElementById(
+            "modalParcelas"
+        )
+        .style.display =
+            "none";
+
+}
+
+
+
+/* =========================
+   CLICAR FORA DO MODAL
+========================= */
+
+window.addEventListener(
+    "click",
+    function(event){
+
+        const modal =
+            document.getElementById(
+                "modalParcelas"
+            );
+
+
+        if(
+            event.target === modal
+        ){
+
+            fecharModal();
+
+        }
+
+    }
+);
+
+
+</script>
+
+</body>
+</html>
